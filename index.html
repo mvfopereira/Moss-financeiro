@@ -107,8 +107,10 @@ const actual=(r)=>['paga','pago','recebido','recebida'].includes(N(r.status));
    Quitações de faturas reduzem a Carteira, sem duplicar gastos nas categorias. */
 let REFERENCE={accounts:3295.53,reserve:0,asOf:'31/10/2026'};
 const CARD_SETTLEMENTS=[{date:'2026-11-03',amount:3761.71,card:'Nubank - Mel',account:'Carteira',desc:'Quitação de fatura Nubank Mel (31/10/2026)'}];
-const isCreditCommitment=r=>r.value<0&&N(r.status)==='pendente'&&N(r.pay)==='cartao de credito';
-function commitmentNow(){return Math.round(-sum(DATA.filter(isCreditCommitment))*100)/100}
+/* Compromissos são somente parcelas de crédito Nubank ou Santander do mês vigente.
+   Contas de origem permanecem distintas no histórico, mesmo com Carteira consolidada. */
+const isCreditCommitment=(r,monthKey)=>r.value<0&&r.date.slice(0,7)===monthKey&&N(r.status)==='pendente'&&N(r.pay)==='cartao de credito'&&/^(nubank|santander)/.test(N(r.account));
+function commitmentNow(todayISO){const monthKey=todayISO.slice(0,7);return Math.round(-sum(DATA.filter(r=>isCreditCommitment(r,monthKey)))*100)/100}
 function positionNow(){
  const today=new Date();
  const todayISO=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
@@ -121,7 +123,7 @@ function positionNow(){
  const settlementsOut=Math.round(settled.reduce((t,r)=>t+r.amount,0)*100)/100;
  const outflow=Math.round((purchasesOut+settlementsOut)*100)/100;
  const accounts=Math.round((REFERENCE.accounts+inflow-outflow)*100)/100;
- const commitments=commitmentNow();
+ const commitments=commitmentNow(todayISO);
  const free=Math.round((accounts-commitments-REFERENCE.reserve)*100)/100;
  const latestDate=[...cleared.map(r=>r.date),...settled.map(r=>r.date)].reduce((d,r)=>r>d?r:d,cutoff);
  return {accounts,inflow,outflow,purchasesOut,settlementsOut,commitments,free,cleared,settled,latestDate,asOf:REFERENCE.asOf};
@@ -163,9 +165,9 @@ function setupTooltips(){
  const p=positionNow();
  const explain={
   accounts:tipHtml('Saldo em contas · movimentações confirmadas',[['Saldo informado em '+REFERENCE.asOf,brPositive(REFERENCE.accounts)],['Recebimentos após a referência','+ '+brPositive(p.inflow)],['Pagamentos diretos','− '+brPositive(p.purchasesOut)],['Faturas quitadas','− '+brPositive(p.settlementsOut)],['Saldo calculado',brPositive(p.accounts)],['Pagamentos de fatura',String(p.settled.length)],['Outras movimentações',String(p.cleared.length)]],'Carteira única para fins de saldo; contas de origem preservadas. A quitação da fatura Nubank de R$ 3.761,71 reduz a Carteira, mas não entra novamente como despesa de consumo. Saldo de referência ainda precisa de conciliação bancária.'),
-  commitments:tipHtml('Compromissos futuros',[['Pendente no crédito',brPositive(p.commitments)],['Data da referência',REFERENCE.asOf]],'Somatório dinâmico dos lançamentos pendentes classificados como Cartão de crédito, em todas as contas. Algumas classificações históricas ainda exigem conciliação.'),
+  commitments:tipHtml('Compromissos futuros',[['Pendente no crédito',brPositive(p.commitments)],['Data da referência',REFERENCE.asOf]],'Somatório dinâmico apenas das parcelas pendentes do mês vigente nos cartões de crédito Nubank e Santander. Compras sem forma de pagamento ou conta identificadas exigem revisão.'),
   reserve:tipHtml('Reserva de emergência',[['Valor informado',brPositive(REFERENCE.reserve)],['Meta de referência',brPositive(5000)]],'A reserva permanece separada das receitas e despesas mensais e não é estimada.'),
-  free:tipHtml('Saldo livre real · cálculo',[['Saldo em contas',brPositive(p.accounts)],['Compromissos futuros','− '+brPositive(p.commitments)],['Reserva protegida','− '+brPositive(REFERENCE.reserve)],['Livre calculado',brMoney(p.free)]],'Carteira consolidada com pagamentos e recebimentos confirmados, inclusive quitações de fatura. Compromissos somados automaticamente conforme classificação de cartão; confira o saldo de referência no extrato.')
+  free:tipHtml('Saldo livre real · cálculo',[['Saldo em contas',brPositive(p.accounts)],['Compromissos futuros','− '+brPositive(p.commitments)],['Reserva protegida','− '+brPositive(REFERENCE.reserve)],['Livre calculado',brMoney(p.free)]],'Carteira consolidada com recebimentos, pagamentos e quitações confirmados. Compromissos incluem apenas crédito Nubank/Santander pendente no mês vigente; confira classificação e saldo de referência no extrato.')
  };
  return explain[el.dataset.help];
  }))
