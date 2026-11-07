@@ -178,7 +178,7 @@ function renderObligationBreakdown(obligations){
  $('credit-breakdown').innerHTML=make(obligations.cards)+(obligations.usingReference?'<div class="obligation-item"><div><b>Ajuste provisório de conciliação</b><small>Nubank '+brMoney(obligations.offsetN)+' · Santander '+brMoney(obligations.offsetS)+' · conferir compras</small></div><strong>'+brMoney(Math.round((obligations.offsetN+obligations.offsetS)*100)/100)+'</strong></div>':'');$('planned-breakdown').innerHTML=make(obligations.planned);
 }
 function renderExpectedIncomeDetails(position){
- const todayISO=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ const today=new Date();const todayISO=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
  const rows=DATA.filter(r=>r.value>0&&N(r.status)==='pendente'&&r.date.slice(0,7)===todayISO.slice(0,7)&&r.date>=todayISO).sort((a,b)=>a.date.localeCompare(b.date));
  const list=rows.map(r=>'<div class="obligation-item"><div><b>'+safe(r.desc||'Receita prevista')+'</b><small>Previsto para '+positionDate(r.date)+' · '+safe(r.account||'Conta a definir')+'</small></div><strong>'+brPositive(r.value)+'</strong></div>').join('');
  $('projected-income-breakdown').innerHTML='<div class="projection-detail-heading"><b>Receitas previstas a entrar</b><strong>'+brPositive(position.expectedIncome)+'</strong></div>'+(list||'<p class="empty">Nenhuma receita futura pendente neste mês.</p>')+'<p class="projection-hint">Esses valores ainda não foram recebidos e só entram na Carteira quando forem confirmados.</p>';
